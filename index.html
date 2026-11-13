@@ -1565,8 +1565,8 @@ function init3D(){ if(!window.THREE) return; initWheel3D(); initHero3D(); initTr
 
 /* ---- access code + basic protection ----
    The code is stored only as a hash. This is a deterrent for casual use, not strong security. */
-var GATE_ON=false; /* true = ask for the access code */
-var ACCESS_HASH='8emstgkiv';
+var GATE_ON=true;
+var CFG={h:'2gkc4q9j2s2',exp:'2027-11-13'};
 function h53(str,seed){
   var h1=0xdeadbeef^seed,h2=0x41c6ce57^seed;
   for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}
@@ -1576,14 +1576,43 @@ function h53(str,seed){
 }
 function norm(v){return String(v).replace(/[٠-٩]/g,function(d){return '٠١٢٣٤٥٦٧٨٩'.indexOf(d);}).replace(/\s/g,'');}
 function unlock(){$('#gate').hidden=true;$('#main').hidden=false;$('#rights').hidden=false;}
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 function tryCode(){
-  if(h53('sbq70|'+norm($('#code').value),7)===ACCESS_HASH){try{sessionStorage.setItem('sbq_ok','1');}catch(e){} unlock(); snd.pop();}
+  if(h53('sbq70|'+norm($('#code').value),7)===CFG.h){lsSet('sbq_ok',CFG.h); unlock(); snd.pop();}
   else{$('#codeErr').textContent='الرمز غير صحيح'; var c=$('#code'); c.value=''; c.style.animation='none'; void c.offsetWidth; c.style.animation='shake .4s';}
 }
 $('#codeBtn').addEventListener('click',tryCode);
 $('#code').addEventListener('keydown',function(e){if(e.key==='Enter')tryCode();});
-var okAlready=false; try{okAlready=sessionStorage.getItem('sbq_ok')==='1';}catch(e){}
-if(!GATE_ON||okAlready) unlock(); else {$('#gate').hidden=false; setTimeout(function(){try{$('#code').focus();}catch(e){}},200);}
+function showGate(){$('#gate').hidden=false;$('#main').hidden=true;setTimeout(function(){try{$('#code').focus();}catch(e){}},200);}
+function showExpired(){
+  $('#main').hidden=true; $('#rights').hidden=true; $('#gate').hidden=false;
+  $('#gate').querySelector('.panel').innerHTML='<div style="font-size:3.4rem;line-height:1" aria-hidden="true">⏳</div><h2>سباق الكواكب</h2><p style="margin:0;font-weight:700;color:var(--muted)">انتهت مدة الترخيص لهذه اللعبة.</p>';
+}
+function evaluate(serverNow){
+  var now=Math.max(Date.now(),serverNow||0), end=new Date(CFG.exp+'T23:59:59+03:00').getTime();
+  if(now>end){showExpired();return;}
+  if(lsGet('sbq_ok')===CFG.h) unlock(); else showGate();
+}
+/* settings file (code.json) lets the owner change the code or the end date without touching the game itself */
+var cached=null; try{cached=JSON.parse(lsGet('sbq_cfg')||'null');}catch(e){}
+if(cached&&cached.h&&cached.exp){CFG=cached;}
+if(!GATE_ON){unlock();}
+else{
+  $('#main').hidden=true; $('#gate').hidden=false;
+  var done=false;
+  function go(sn){if(done)return;done=true;evaluate(sn);}
+  var t=setTimeout(function(){go(0);},2500);
+  try{
+    fetch('code.json?t='+Date.now(),{cache:'no-store'}).then(function(r){
+      var d=r.headers.get('Date'); var sn=d?new Date(d).getTime():0;
+      return r.json().then(function(j){return [j,sn];});
+    }).then(function(x){
+      var j=x[0]; if(j&&j.h&&j.exp){CFG={h:String(j.h),exp:String(j.exp)};lsSet('sbq_cfg',JSON.stringify(CFG));}
+      clearTimeout(t); go(x[1]);
+    }).catch(function(){clearTimeout(t);go(0);});
+  }catch(e){clearTimeout(t);go(0);}
+}
 
 document.body.classList.add('nosel');
 ['contextmenu','dragstart','copy','cut'].forEach(function(ev){document.addEventListener(ev,function(e){if(!(e.target&&e.target.tagName==='INPUT'))e.preventDefault();});});
