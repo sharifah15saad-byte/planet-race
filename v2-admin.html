@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>لوحة إدارة سباق الكواكب</title>
+<style>
+:root{--bg:#EEF6FF;--card:#fff;--ink:#1B2559;--muted:#5B6794;--line:#D6E3F7;--blue:#3D7BFF;--mint:#16B891;--coral:#FF5C4D;--sun:#FFC83D;--bar:#8DB4FF}
+@media (prefers-color-scheme:dark){:root{--bg:#0F1530;--card:#18204A;--ink:#EAF0FF;--muted:#A5B2E0;--line:#2B3770;--bar:#4D74D6}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Segoe UI",Tahoma,Arial,sans-serif;padding:16px}
+.wrap{max-width:980px;margin:0 auto;display:grid;gap:14px}
+h1{margin:0;font-size:1.5rem} h2{margin:0 0 8px;font-size:1.1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;min-width:0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.kpi{text-align:center}.kpi b{display:block;font-size:2rem;color:var(--blue)}.kpi span{color:var(--muted);font-size:.9rem}
+input,button,select{font:inherit;border-radius:12px;border:1.5px solid var(--line);padding:8px 12px;background:var(--card);color:var(--ink)}
+button{cursor:pointer;background:var(--blue);color:#fff;border-color:var(--blue);font-weight:700}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+button.red{background:var(--coral);border-color:var(--coral)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bar{display:grid;grid-template-columns:minmax(80px,30%) 1fr 48px;gap:8px;align-items:center;margin:4px 0;font-size:.92rem}
+.bar i{display:block;height:14px;border-radius:8px;background:var(--bar)}
+.bar span:last-child{text-align:left;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
+.scroll{overflow-x:auto}
+.tag{padding:2px 10px;border-radius:99px;font-size:.8rem;font-weight:700}
+.on{background:#d8f6ec;color:#0a7a5a}.off{background:#ffe1de;color:#b3261e}
+.muted{color:var(--muted)} .err{color:var(--coral);min-height:1.4em}
+.login{max-width:420px;margin:12vh auto;text-align:center;display:grid;gap:10px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="login card" id="login">
+  <div style="font-size:3rem">🔐</div>
+  <h1>لوحة إدارة سباق الكواكب</h1>
+  <p class="muted" style="margin:0">أدخلي كلمة سر الإدارة</p>
+  <input id="pw" type="password" autocomplete="current-password" aria-label="كلمة السر">
+  <div class="err" id="lerr"></div>
+  <button id="enter">دخول</button>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="row" style="justify-content:space-between">
+    <h1>📊 لوحة إدارة سباق الكواكب</h1>
+    <div class="row"><button class="ghost" id="reload">تحديث</button><button class="ghost" id="out">خروج</button></div>
+  </div>
+  <div class="grid" id="kpis"></div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+    <div class="card"><h2>الألعاب لكل صف</h2><div id="byGrade"></div></div>
+    <div class="card"><h2>الألعاب لكل رمز (معلمة / صف)</h2><div id="byLabel"></div></div>
+    <div class="card"><h2>الألعاب خلال ٣٠ يومًا</h2><div id="byDay"></div></div>
+    <div class="card"><h2>نسبة الصواب (أسئلة اختيار)</h2><div id="acc"></div></div>
+  </div>
+  <div class="card"><h2>الأسئلة الأكثر خطأً</h2><div class="muted" style="font-size:.85rem;margin-bottom:6px">تظهر الأسئلة التي أُجيب عنها ٣ مرات فأكثر</div><div class="scroll"><table id="missed"></table></div></div>
+
+  <div class="card">
+    <h2>الرموز والصلاحيات</h2>
+    <div class="scroll"><table id="codes"></table></div>
+    <h2 style="margin-top:14px">إضافة رمز جديد</h2>
+    <div class="row">
+      <input id="nl" placeholder="الاسم (مثل: الصف الأول)" style="flex:1;min-width:150px">
+      <input id="nc" placeholder="الرمز (٤–١٢ رقمًا)" inputmode="numeric" style="width:170px">
+      <input id="ne" type="date" aria-label="تاريخ الانتهاء">
+      <button id="add">إضافة</button>
+    </div>
+    <div class="muted" style="font-size:.85rem">اترك التاريخ فارغًا لرمز بلا انتهاء. إيقاف رمز يقفل اللعبة فورًا على كل الأجهزة المتصلة بالإنترنت.</div>
+    <div class="err" id="cerr"></div>
+  </div>
+
+  <div class="card">
+    <h2>تغيير كلمة سر الإدارة</h2>
+    <div class="row"><input id="np" type="password" placeholder="كلمة سر جديدة (٨ أحرف فأكثر)" style="flex:1;min-width:200px"><button id="setpw" class="ghost">حفظ</button></div>
+    <div class="err" id="perr"></div>
+  </div>
+  <div class="muted" style="text-align:center;font-size:.85rem">لا تُسجَّل أسماء الطالبات؛ فقط الصف واللغة وعدد الفرق والنتيجة والأسئلة.</div>
+</div>
+
+<script>
+var API='https://unbpmqbdqbngkhyshimh.supabase.co/functions/v1/game-api';
+var $=function(s){return document.querySelector(s)};
+var PW='';
+var AR='٠١٢٣٤٥٦٧٨٩';
+function N(x){return String(x).replace(/[0-9]/g,function(d){return AR[d]})}
+function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function call(a,extra){
+  var b=Object.assign({action:a,password:PW},extra||{});
+  return fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json().then(function(j){j._s=r.status;return j;});});
+}
+function bars(el,rows,fmt){
+  var m=Math.max.apply(null,rows.map(function(r){return r.v}).concat([1]));
+  el.innerHTML=rows.length?rows.map(function(r){return '<div class="bar"><span>'+esc(r.k)+'</span><span><i style="width:'+Math.max(3,100*r.v/m)+'%"></i></span><span>'+(fmt?fmt(r.v):N(r.v))+'</span></div>'}).join(''):'<div class="muted">لا توجد بيانات بعد</div>';
+}
+var KIND={ar:'عربي',en:'إنجليزي',ch:'تحدٍّ'};
+function load(){
+  Promise.all([call('admin_stats'),call('admin_codes')]).then(function(r){
+    var a=r[0],c=r[1];
+    if(!a.ok){ if(a._s===401||a.error==='auth'){sessionStorage.removeItem('pw');show(false);$('#lerr').textContent='كلمة السر غير صحيحة';} else if(a.error==='many'){$('#lerr').textContent='محاولات كثيرة، انتظري قليلًا';show(false);} return; }
+    show(true);
+    var s=a.stats,t=s.totals;
+    $('#kpis').innerHTML=[['عدد الألعاب',t.games],['آخر ٧ أيام',t.last7],['عدد الإجابات',t.answers],['نسبة الصواب %',t.correct_pct]].map(function(x){return '<div class="card kpi"><b>'+N(x[1])+'</b><span>'+x[0]+'</span></div>'}).join('');
+    bars($('#byGrade'),s.by_grade.map(function(x){return {k:'الصف '+N(x.grade),v:x.games}}));
+    bars($('#byLabel'),s.by_label.map(function(x){return {k:x.label,v:x.games}}));
+    bars($('#byDay'),s.by_day.map(function(x){return {k:x.day.slice(5),v:x.games}}));
+    var acc=s.by_grade_acc.map(function(x){return {k:'الصف '+N(x.grade),v:x.correct_pct}}).concat(s.by_kind.map(function(x){return {k:(KIND[x.kind]||x.kind),v:x.correct_pct}}));
+    bars($('#acc'),acc,function(v){return N(v)+'٪'});
+    $('#missed').innerHTML='<tr><th>السؤال</th><th>الصف</th><th>النوع</th><th>الإجابات</th><th>الأخطاء</th></tr>'+(s.missed.length?s.missed.map(function(x){return '<tr><td dir="auto">'+esc(x.q)+'</td><td>'+N(x.grade||'')+'</td><td>'+(KIND[x.kind]||x.kind)+'</td><td>'+N(x.total)+'</td><td>'+N(x.wrong)+'</td></tr>'}).join(''):'<tr><td colspan="5" class="muted">لا توجد بيانات كافية بعد</td></tr>');
+    renderCodes(c.codes||[]);
+  }).catch(function(){$('#lerr').textContent='تعذّر الاتصال';});
+}
+function dstr(x){return x?x.slice(0,10):'بلا انتهاء'}
+function renderCodes(list){
+  $('#codes').innerHTML='<tr><th>الاسم</th><th>الحالة</th><th>ينتهي</th><th>إجراءات</th></tr>'+list.map(function(c){
+    var expired=c.expires_at&&new Date(c.expires_at)<new Date();
+    return '<tr><td>'+esc(c.label)+'</td><td><span class="tag '+((c.active&&!expired)?'on':'off')+'">'+(expired?'منتهٍ':(c.active?'فعّال':'موقوف'))+'</span></td><td>'+dstr(c.expires_at)+'</td><td class="row">'
+      +'<button class="ghost" data-t="'+c.id+'">'+(c.active?'إيقاف':'تفعيل')+'</button>'
+      +'<button class="ghost" data-e="'+c.id+'">تاريخ</button>'
+      +'<button class="ghost" data-c="'+c.id+'">رمز جديد</button></td></tr>'}).join('');
+}
+$('#codes').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  var id=b.dataset.t||b.dataset.e||b.dataset.c; if(!id) return;
+  var row=b.closest('tr'), cur=row.children[1].textContent;
+  if(b.dataset.t){ call('admin_code_update',{id:id,active:cur!=='فعّال'}).then(afterCode); }
+  else if(b.dataset.e){ var v=prompt2('تاريخ الانتهاء الجديد (YYYY-MM-DD)، أو اتركيه فارغًا لإلغاء الانتهاء'); if(v===null) return; call('admin_code_update',{id:id,expires_at:v?(v+'T23:59:59+03:00'):null}).then(afterCode); }
+  else { var v2=prompt2('الرمز الجديد (٤–١٢ رقمًا)'); if(!v2) return; call('admin_code_update',{id:id,code:v2}).then(afterCode); }
+});
+/* the page frame may block native prompt(); use an inline input instead */
+function prompt2(msg){
+  var v=window.prompt?window.prompt(msg):null; return v;
+}
+function afterCode(r){ $('#cerr').textContent=r.ok?'':'تعذّر الحفظ'; load(); }
+$('#add').addEventListener('click',function(){
+  var l=$('#nl').value.trim(),c=$('#nc').value.trim(),e=$('#ne').value;
+  call('admin_code_create',{label:l,code:c,expires_at:e?(e+'T23:59:59+03:00'):null}).then(function(r){
+    $('#cerr').textContent=r.ok?'':(r.error==='exists'?'هذا الرمز مستخدم':'تحققي من الاسم والرمز'); if(r.ok){$('#nl').value=$('#nc').value=$('#ne').value='';} load();
+  });
+});
+$('#setpw').addEventListener('click',function(){
+  var n=$('#np').value; call('admin_set_password',{new_password:n}).then(function(r){
+    if(r.ok){PW=n;sessionStorage.setItem('pw',n);$('#np').value='';$('#perr').textContent='تم الحفظ ✔';} else $('#perr').textContent='٨ أحرف على الأقل';
+  });
+});
+function show(ok){$('#login').hidden=ok;$('#app').hidden=!ok;}
+$('#enter').addEventListener('click',function(){PW=$('#pw').value;sessionStorage.setItem('pw',PW);$('#lerr').textContent='';load();});
+$('#pw').addEventListener('keydown',function(e){if(e.key==='Enter')$('#enter').click();});
+$('#reload').addEventListener('click',load);
+$('#out').addEventListener('click',function(){sessionStorage.removeItem('pw');PW='';$('#pw').value='';show(false);});
+try{var sp=sessionStorage.getItem('pw'); if(sp){PW=sp;load();}}catch(e){}
+</script>
+</body>
+</html>
